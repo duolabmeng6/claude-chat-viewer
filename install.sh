@@ -1,40 +1,74 @@
 #!/bin/bash
 
 # Claude Chat Viewer 技能安装脚本
-# 将此项目安装为 Claude Code CLI 的技能
+# 支持从本地目录或 GitHub 仓库安装
 
 set -e
 
-# 颜色定义
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# 获取脚本所在目录的绝对路径
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_NAME="claude-chat-viewer"
 SKILL_DIR="$HOME/.claude/skills/$SKILL_NAME"
+TEMP_DIR=""
 
-echo -e "${BLUE}ℹ 正在安装 Claude Chat Viewer 技能...${NC}"
+# 清理函数
+cleanup() {
+    if [ ! -z "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# 注册清理函数
+trap cleanup EXIT
 
 # 检查 pnpm 是否安装
-if ! command -v pnpm &> /dev/null; then
-    echo -e "${RED}✗ 未找到 pnpm，请先安装 pnpm${NC}"
-    echo "  npm install -g pnpm"
-    exit 1
-fi
+check_pnpm() {
+    if ! command -v pnpm &> /dev/null; then
+        echo -e "${RED}✗ 未找到 pnpm，请先安装 pnpm${NC}"
+        echo "  npm install -g pnpm"
+        exit 1
+    fi
+}
 
-# 创建技能目录
-echo -e "${BLUE}ℹ 创建技能目录...${NC}"
-mkdir -p "$SKILL_DIR"
+# 从 GitHub 仓库安装
+install_from_github() {
+    local repo_url="$1"
 
-# 复制技能文件到 Claude 技能目录
-echo -e "${BLUE}ℹ 复制技能文件...${NC}"
-cp -r "$SCRIPT_DIR" "$SKILL_DIR/project"
+    echo -e "${BLUE}ℹ 从 GitHub 仓库安装: $repo_url${NC}"
 
-# 创建启动脚本
-cat > "$SKILL_DIR/start.sh" << 'STARTSCRIPT'
+    # 创建临时目录
+    TEMP_DIR=$(mktemp -d)
+
+    # 克隆仓库
+    echo -e "${BLUE}ℹ 克隆仓库...${NC}"
+    git clone "$repo_url" "$TEMP_DIR"
+
+    # 执行安装
+    install_from_directory "$TEMP_DIR"
+}
+
+# 从本地目录安装
+install_from_directory() {
+    local source_dir="$1"
+
+    echo -e "${BLUE}ℹ 正在安装 Claude Chat Viewer 技能...${NC}"
+
+    check_pnpm
+
+    # 创建技能目录
+    echo -e "${BLUE}ℹ 创建技能目录...${NC}"
+    mkdir -p "$SKILL_DIR"
+
+    # 复制技能文件到 Claude 技能目录
+    echo -e "${BLUE}ℹ 复制技能文件...${NC}"
+    cp -r "$source_dir" "$SKILL_DIR/project"
+
+    # 创建启动脚本
+    cat > "$SKILL_DIR/start.sh" << 'STARTSCRIPT'
 #!/bin/bash
 
 # Claude Chat Viewer 启动脚本
@@ -189,10 +223,10 @@ case "${1:-}" in
 esac
 STARTSCRIPT
 
-chmod +x "$SKILL_DIR/start.sh"
+    chmod +x "$SKILL_DIR/start.sh"
 
-# 创建技能元数据文件
-cat > "$SKILL_DIR/skill.md" << 'SKILLMD'
+    # 创建技能元数据文件
+    cat > "$SKILL_DIR/skill.md" << 'SKILLMD'
 # Claude Chat Viewer
 
 查看 Claude Code CLI 聊天记录的 Web 界面。
@@ -222,20 +256,34 @@ claude-chat-viewer
 - ⚡ 高性能 - 基于 Next.js 15，响应迅速
 SKILLMD
 
-# 安装依赖并构建项目
-echo -e "${BLUE}ℹ 安装依赖...${NC}"
-cd "$SKILL_DIR/project"
-pnpm install
+    # 安装依赖并构建项目
+    echo -e "${BLUE}ℹ 安装依赖...${NC}"
+    cd "$SKILL_DIR/project"
+    pnpm install
 
-echo -e "${BLUE}ℹ 构建项目...${NC}"
-pnpm build
+    echo -e "${BLUE}ℹ 构建项目...${NC}"
+    pnpm build
 
-echo -e "${GREEN}✓ 安装完成！${NC}"
-echo ""
-echo -e "${GREEN}使用方法：${NC}"
-echo "  claude-chat-viewer          # 启动服务"
-echo "  claude-chat-viewer --stop   # 停止服务"
-echo "  claude-chat-viewer --status # 查看状态"
-echo "  claude-chat-viewer --logs   # 查看日志"
-echo ""
-echo -e "${GREEN}首次使用时，在 Claude Code CLI 中说\"查看聊天记录\"即可自动启动${NC}"
+    echo -e "${GREEN}✓ 安装完成！${NC}"
+    echo ""
+    echo -e "${GREEN}使用方法：${NC}"
+    echo "  claude-chat-viewer          # 启动服务"
+    echo "  claude-chat-viewer --stop   # 停止服务"
+    echo "  claude-chat-viewer --status # 查看状态"
+    echo "  claude-chat-viewer --logs   # 查看日志"
+    echo ""
+    echo -e "${GREEN}首次使用时，在 Claude Code CLI 中说\"查看聊天记录\"即可自动启动${NC}"
+}
+
+# 主逻辑
+if [ $# -eq 0 ]; then
+    # 没有参数，从当前目录安装
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    install_from_directory "$SCRIPT_DIR"
+elif [[ "$1" == "http"* ]]; then
+    # 参数是 URL，从 GitHub 安装
+    install_from_github "$1"
+else
+    # 参数是本地路径
+    install_from_directory "$1"
+fi
