@@ -30,15 +30,35 @@
 
 ## 🚀 快速开始
 
-### 安装
+### 方式一：一键安装为 Claude Code 技能（推荐）
+
+**选项 1：克隆后安装**
+```bash
+git clone https://github.com/your-username/claude-chat-viewer.git
+cd claude-chat-viewer
+./install.sh
+```
+
+**选项 2：一键安装（无需克隆）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/your-username/claude-chat-viewer/main/quick-install.sh | bash
+```
+
+安装完成后，在 Claude Code CLI 中说"查看聊天记录"即可自动启动，或者直接运行：
+
+```bash
+claude-chat-viewer          # 启动服务
+claude-chat-viewer --stop   # 停止服务
+claude-chat-viewer --status # 查看状态
+claude-chat-viewer --logs   # 查看日志
+```
+
+> 💡 **提示**：记得将仓库 URL 中的 `your-username` 替换为你的 GitHub 用户名
+
+### 方式二：直接运行
 
 ```bash
 pnpm install
-```
-
-### 开发模式
-
-```bash
 pnpm dev
 ```
 
